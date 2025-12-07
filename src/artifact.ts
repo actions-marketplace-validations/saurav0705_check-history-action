@@ -1,4 +1,4 @@
-import {ArtifactClient, create} from '@actions/artifact'
+import {DefaultArtifactClient} from '@actions/artifact'
 import {
   arrayBufferToFile,
   convertFileToString,
@@ -13,27 +13,34 @@ import {
 import {github} from './github/client'
 
 class ArtifactHandler {
-  client = create()
+  client = new DefaultArtifactClient()
+  retentionDays = 30
 
-  setClient(client: ArtifactClient): void {
-    this.client = client
+  setRetentionDays(days: number): void {
+    this.retentionDays = days
   }
 
   private generateArtifactName(name: string): string {
     return `check-action-history-${github.CONFIG.owner}-${github.CONFIG.repo}-${name}-${github.CONFIG.issue_number}`
   }
 
-  async uploadArtifact(name: string, value: string): Promise<void> {
+  async uploadArtifact(
+    name: string,
+    value: string,
+    retentionDays?: number
+  ): Promise<void> {
     const ARTIFACT_NAME = this.generateArtifactName(name)
     // Get All Artifacts by Old Name
-    const artifacts = await getArtifactsByName(`${ARTIFACT_NAME}.txt`)
+    const artifacts = await getArtifactsByName(ARTIFACT_NAME)
 
     // Delete All Old Artifacts By Same Name
     await deleteArtifacts(artifacts)
 
     // Upload New Artifact
     convertStringToFile(`${ARTIFACT_NAME}.txt`, value)
-    this.client.uploadArtifact(ARTIFACT_NAME, [`${ARTIFACT_NAME}.txt`], '.', {})
+    this.client.uploadArtifact(ARTIFACT_NAME, [`${ARTIFACT_NAME}.txt`], '.', {
+      retentionDays: retentionDays ?? this.retentionDays
+    })
   }
 
   async downloadArtifact(name: string): Promise<string | null> {
